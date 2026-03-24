@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Osservatorio Geopolitico Integrato</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B0F14;
+    --bg-card: #0D1219;
+    --bg-card-open: #111825;
+    --bg-header: #0F1520;
+    --border: #1A2030;
+    --border-light: #151D2A;
+    --border-active: #2A3544;
+    --text: #D4D8DE;
+    --text-bright: #F1FAEE;
+    --text-dim: #8D99AE;
+    --text-muted: #5A6577;
+    --text-faint: #3A4555;
+    --accent: #457B9D;
+    --accent-bg: #1A2636;
+    --accent-border: #2A4060;
+    --green: #2A9D8F;
+    --orange: #F4A261;
+    --red: #E63946;
+    --ita: #2A9D8F;
+    --int: #457B9D;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .serif { font-family: 'DM Serif Display', serif; }
+
+  /* HEADER */
+  #header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 16px 12px;
+    background: linear-gradient(180deg, var(--bg-header), var(--bg));
+    position: sticky; top: 0; z-index: 10;
+  }
+  .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .header-left { display: flex; align-items: center; gap: 8px; }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 6px var(--green);
+  }
+  .status-dot.loading {
+    background: var(--orange); box-shadow: 0 0 6px var(--orange);
+    animation: pulse 1.5s infinite;
+  }
+  .status-dot.error { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  h1 { font-size: 18px; font-weight: 400; color: var(--text-bright); }
+  .header-subtitle { font-size: 10px; color: var(--text-faint); margin-top: 2px; letter-spacing: 0.05em; }
+  .header-actions { display: flex; gap: 6px; align-items: center; }
+  #refreshBtn, .lang-toggle {
+    background: transparent; border: 1px solid var(--border-active);
+    color: var(--text-dim); padding: 4px 10px; border-radius: 5px;
+    font-size: 10px; cursor: pointer; font-family: 'JetBrains Mono', monospace;
+    transition: all 0.2s;
+  }
+  #refreshBtn:hover, .lang-toggle:hover { color: var(--text-bright); border-color: var(--accent); }
+  #refreshBtn:disabled { cursor: wait; opacity: 0.5; }
+
+  /* SOURCE SCOPE TABS */
+  .scope-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+  .scope-tab {
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-muted); padding: 3px 10px; border-radius: 4px;
+    font-size: 10px; cursor: pointer; font-family: 'JetBrains Mono', monospace;
+    transition: all 0.15s;
+  }
+  .scope-tab:hover { color: var(--text-dim); }
+  .scope-tab.active {
+    font-weight: 600; color: var(--text-bright);
+  }
+  .scope-tab.active[data-scope="all"] { background: var(--accent-bg); border-color: var(--accent-border); }
+  .scope-tab.active[data-scope="ita"] { background: rgba(42,157,143,0.12); border-color: rgba(42,157,143,0.3); color: var(--ita); }
+  .scope-tab.active[data-scope="int"] { background: rgba(69,123,157,0.12); border-color: rgba(69,123,157,0.3); color: var(--int); }
+  .scope-count { opacity: 0.4; font-size: 9px; }
+
+  /* SOURCES */
+  .sources { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .source-tag { font-size: 9px; cursor: default; transition: opacity 0.2s; }
+  .source-tag.error { color: var(--text-faint) !important; text-decoration: line-through; }
+  .source-tag .source-count { opacity: 0.4; font-size: 8px; }
+
+  /* FILTERS */
+  .filters { display: flex; gap: 4px; flex-wrap: wrap; }
+  .filter-btn {
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-muted); padding: 3px 9px; border-radius: 4px;
+    font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { color: var(--text-dim); }
+  .filter-btn.active {
+    background: var(--accent-bg); border-color: var(--accent-border);
+    color: var(--text-bright); font-weight: 600;
+  }
+  .filter-count { opacity: 0.4; font-size: 9px; }
+
+  /* CONTENT */
+  #content { padding: 14px 16px; }
+  .counter { font-size: 9px; color: var(--text-faint); margin-bottom: 10px; letter-spacing: 0.1em; }
+  .empty { color: var(--text-faint); font-size: 12px; text-align: center; padding: 30px 0; }
+
+  /* LOADING */
+  #loading { padding: 40px 16px; text-align: center; }
+  .spinner {
+    display: inline-block; width: 24px; height: 24px;
+    border: 2px solid var(--accent-bg); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  .loading-text { color: var(--text-muted); font-size: 11px; margin-top: 10px; }
+
+  /* TRANSLATION PROGRESS */
+  #translationBar {
+    display: none; margin-bottom: 10px; padding: 6px 12px;
+    background: rgba(69,123,157,0.08); border: 1px solid rgba(69,123,157,0.15);
+    border-radius: 5px; font-size: 10px; color: var(--accent);
+  }
+  .translation-progress {
+    height: 2px; background: var(--accent-bg); border-radius: 1px; margin-top: 4px; overflow: hidden;
+  }
+  .translation-fill {
+    height: 100%; background: var(--accent); border-radius: 1px; transition: width 0.3s;
+  }
+
+  /* ARTICLE */
+  .article {
+    margin-bottom: 6px; padding: 10px 14px;
+    background: var(--bg-card); border: 1px solid var(--border-light);
+    border-radius: 7px; border-left: 3px solid var(--accent);
+    transition: background 0.15s, border-color 0.15s;
+    animation: fadeIn 0.2s ease-out;
+  }
+  .article.open { background: var(--bg-card-open); border-color: var(--border-active); }
+  .article-header { cursor: pointer; }
+  .article-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .article-source { font-size: 9px; font-weight: 500; }
+  .article-time { font-size: 9px; color: var(--text-faint); }
+  .article-lang {
+    font-size: 7px; padding: 1px 4px; border-radius: 3px;
+    font-weight: 600; letter-spacing: 0.05em;
+  }
+  .article-lang.ita { background: rgba(42,157,143,0.15); color: var(--ita); }
+  .article-lang.int { background: rgba(69,123,157,0.15); color: var(--int); }
+  .article-lang.translated { background: rgba(244,162,97,0.12); color: var(--orange); }
+  .article-title {
+    font-size: 13px; color: var(--text-bright); font-weight: 500;
+    line-height: 1.35; margin: 0;
+  }
+  .article-title-original {
+    font-size: 10px; color: var(--text-faint); margin-top: 3px;
+    font-style: italic; line-height: 1.3;
+  }
+  .article-body {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+    display: none;
+  }
+  .article.open .article-body { display: block; }
+  .article-desc { font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-bottom: 10px; }
+  .article-link {
+    display: inline-block; background: transparent; border: 1px solid var(--border);
+    color: var(--text-muted); padding: 4px 10px; border-radius: 4px;
+    font-size: 10px; text-decoration: none; transition: all 0.15s;
+  }
+  .article-link:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* FOOTER */
+  .footer {
+    margin-top: 20px; padding: 8px 12px; background: #0D1118;
+    border-radius: 5px; font-size: 9px; color: var(--text-faint); line-height: 1.5;
+  }
+
+  /* SEARCH */
+  #searchBox {
+    width: 100%; padding: 6px 10px; margin-top: 8px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 5px; color: var(--text); font-size: 12px;
+    font-family: 'DM Sans', sans-serif; outline: none;
+    transition: border-color 0.2s;
+  }
+  #searchBox:focus { border-color: var(--accent); }
+  #searchBox::placeholder { color: var(--text-faint); }
+
+  /* ERROR */
+  .error-banner {
+    margin-bottom: 10px; padding: 8px 12px;
+    background: rgba(230,57,70,0.08); border: 1px solid rgba(230,57,70,0.2);
+    border-radius: 5px; font-size: 10px; color: var(--orange); display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(4px); } to { opacity:1; transform: translateY(0); } }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--accent-bg); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="header-row">
+    <div class="header-left">
+      <div class="status-dot loading" id="statusDot"></div>
+      <div>
+        <h1 class="serif">Osservatorio Geopolitico</h1>
+        <div class="header-subtitle mono">Fonti italiane e internazionali · Traduzione automatica</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="refreshBtn" class="mono" onclick="loadAllFeeds()">⟳ Aggiorna</button>
+    </div>
+  </div>
+  <div class="scope-tabs" id="scopeTabs"></div>
+  <div class="sources" id="sourceTags"></div>
+  <div class="filters" id="filterBar"></div>
+  <input type="text" id="searchBox" class="mono" placeholder="Cerca per parola chiave..." oninput="renderArticles()">
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p class="loading-text mono" id="loadingText">Caricamento feed...</p>
+</div>
+
+<div id="content" style="display:none;">
+  <div class="error-banner mono" id="errorBanner"></div>
+  <div id="translationBar" class="mono">
+    <span id="translationText">Traduzione in corso...</span>
+    <div class="translation-progress"><div class="translation-fill" id="translationFill" style="width:0%"></div></div>
+  </div>
+  <div class="counter mono" id="counter"></div>
+  <div id="articleList"></div>
+  <div class="footer mono">
+    ⚠ Feed RSS diretti da testate, centri studi e think tank · Nessun dato inviato a terzi · Verificare sempre le fonti primarie<br>
+    Traduzione automatica via MyMemory API · I titoli originali sono sempre visibili<br>
+    Ultimo aggiornamento: <span id="lastUpdate">—</span>
+  </div>
+</div>
+
+<script>
+const RSS2JSON = "https://api.rss2json.com/v1/api.json?rss_url=";
+const TRANSLATE_API = "https://api.mymemory.translated.net/get";
+
+// ── FONTI ──
+const FEEDS = [
+  // Italiane
+  { name: "ISPI", url: "https://www.ispionline.it/it/feed", color: "#E63946", lang: "it", scope: "ita" },
+  { name: "Affari Int.", url: "https://www.affarinternazionali.it/feed/", color: "#457B9D", lang: "it", scope: "ita" },
+  { name: "Limes", url: "https://www.limesonline.com/feed", color: "#F4A261", lang: "it", scope: "ita" },
+  { name: "Caffè Geopolitico", url: "https://ilcaffegeopolitico.net/feed", color: "#2A9D8F", lang: "it", scope: "ita" },
+  { name: "Notizie Geopolitiche", url: "https://www.notiziegeopolitiche.net/feed/", color: "#8338EC", lang: "it", scope: "ita" },
+  { name: "Geopolitica.info", url: "https://geopolitica.info/feed/", color: "#E76F51", lang: "it", scope: "ita" },
+  { name: "Internazionale", url: "https://www.internazionale.it/sitemaps/rss.xml", color: "#264653", lang: "it", scope: "ita" },
+  { name: "Atlante Guerre", url: "https://www.atlanteguerre.it/feed/", color: "#D4A373", lang: "it", scope: "ita" },
+  // Internazionali
+  { name: "CSIS", url: "https://www.csis.org/analysis/feed", color: "#FF6B6B", lang: "en", scope: "int" },
+  { name: "Crisis Group", url: "https://www.crisisgroup.org/rss.xml", color: "#FFA94D", lang: "en", scope: "int" },
+  { name: "Brookings", url: "https://www.brookings.edu/feed/", color: "#CC5DE8", lang: "en", scope: "int" },
+  { name: "RAND", url: "https://www.rand.org/blog.xml", color: "#5C7CFA", lang: "en", scope: "int" },
+  { name: "Carnegie", url: "https://carnegieendowment.org/rss/solr/?lang=en", color: "#FF8787", lang: "en", scope: "int" },
+  { name: "Chatham House", url: "https://www.chathamhouse.org/rss", color: "#20C997", lang: "en", scope: "int" },
+];
+
+const FILTERS = [
+  { id: "all", label: "Tutti", kw: [] },
+  { id: "iran", label: "Iran", kw: ["iran","teheran","tehran","persian","khamenei","pasdaran","irgc","hormuz","iraniano","iraniana"] },
+  { id: "middleeast", label: "Medio Oriente", kw: ["medio oriente","middle east","israele","israel","gaza","saudi","golfo","libano","lebanon","siria","syria","houthi","yemen","hezbollah","hamas","palestin","gerusalemme","jerusalem","netanyahu","arabia saudita","beirut","gulf"] },
+  { id: "usachina", label: "USA-Cina", kw: ["cina","china","pechino","beijing","taiwan","indo-pacifico","indo-pacific","mar cinese","south china sea","xi jinping","guerra commerciale","trade war","dazi","tariff","stati uniti","washington","trump"] },
+  { id: "europe", label: "Europa & NATO", kw: ["europa","europe","nato","ue ","eu ","unione europea","european","bruxelles","brussels","difesa europea","defense","defence","baltic","baltico","polonia","poland","balcani","mediterraneo","mediterranean"] },
+  { id: "russia", label: "Russia & Ucraina", kw: ["russia","ucraina","ukraine","mosca","moscow","kiev","kyiv","cremlino","kremlin","putin","zelensky","donbas","crimea","russo","russa","ucraino","ucraini"] },
+  { id: "africa", label: "Africa", kw: ["africa","sahel","libia","libya","etiopia","ethiopia","somalia","sudan","niger","mali","burkina","nigeria","maghreb","tunisi","tunisia","egitto","egypt","marocco","morocco","algeria"] },
+  { id: "asia", label: "Asia-Pacifico", kw: ["asia","pacific","pacifico","japan","giappone","korea","corea","india","asean","southeast asia","sud-est asiatico","myanmar","philippines","filippine","indonesia","vietnam","north korea"] },
+];
+
+let articles = [];
+let activeFilter = "all";
+let activeScope = "all";
+let feedErrors = [];
+let feedCounts = {};
+let openArticle = null;
+let translationCache = {};
+
+// ── UTILITIES ──
+
+function stripHtml(html) {
+  const d = document.createElement("div");
+  d.innerHTML = html || "";
+  return d.textContent || "";
+}
+
+function timeAgo(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (isNaN(diff) || diff < 0) return "";
+  if (diff < 3600) return Math.floor(diff / 60) + " min fa";
+  if (diff < 86400) return Math.floor(diff / 3600) + " ore fa";
+  if (diff < 604800) return Math.floor(diff / 86400) + "g fa";
+  return new Date(dateStr).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+}
+
+function matchFilter(a, fid) {
+  if (fid === "all") return true;
+  const f = FILTERS.find(x => x.id === fid);
+  const t = (a.title + " " + (a.titleOriginal || "") + " " + a.desc + " " + a.cats).toLowerCase();
+  return f.kw.some(k => t.includes(k));
+}
+
+function matchScope(a) {
+  if (activeScope === "all") return true;
+  return a.scope === activeScope;
+}
+
+function matchSearch(a, q) {
+  if (!q) return true;
+  const t = (a.title + " " + (a.titleOriginal || "") + " " + a.desc + " " + a.source).toLowerCase();
+  return q.toLowerCase().split(/\s+/).every(w => t.includes(w));
+}
+
+// ── TRADUZIONE ──
+
+async function translateText(text, from, to) {
+  const cacheKey = from + "|" + to + "|" + text;
+  if (translationCache[cacheKey]) return translationCache[cacheKey];
+  try {
+    const url = `${TRANSLATE_API}?q=${encodeURIComponent(text)}&langpair=${from}|${to}&de=lodovico.rossetti@gmail.com`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.responseStatus === 200 && d.responseData && d.responseData.translatedText) {
+      const result = d.responseData.translatedText;
+      translationCache[cacheKey] = result;
+      return result;
+    }
+  } catch (e) { /* fallback silenzioso */ }
+  return null;
+}
+
+async function translateArticles() {
+  const toTranslate = articles.filter(a => a.lang === "en" && !a.translated);
+  if (toTranslate.length === 0) return;
+
+  const bar = document.getElementById("translationBar");
+  const fill = document.getElementById("translationFill");
+  const textEl = document.getElementById("translationText");
+  bar.style.display = "block";
+
+  // Traduci in batch di titoli raggruppati (max ~450 char per chiamata per stare nei limiti)
+  let done = 0;
+  const total = toTranslate.length;
+
+  for (const a of toTranslate) {
+    const translated = await translateText(a.title, "en", "it");
+    if (translated && translated.toLowerCase() !== a.title.toLowerCase()) {
+      a.titleOriginal = a.title;
+      a.title = translated;
+      a.translated = true;
+    } else {
+      a.translated = true; // segna come provato
+    }
+    done++;
+    const pct = Math.round((done / total) * 100);
+    fill.style.width = pct + "%";
+    textEl.textContent = `Traduzione titoli: ${done}/${total}`;
+
+    // Aggiorna la lista ogni 5 articoli tradotti
+    if (done % 5 === 0 || done === total) {
+      renderArticles();
+    }
+
+    // Piccola pausa per non sovraccaricare l'API
+    await new Promise(r => setTimeout(r, 350));
+  }
+
+  bar.style.display = "none";
+  renderArticles();
+}
+
+// ── RENDER ──
+
+function renderScopeTabs() {
+  const el = document.getElementById("scopeTabs");
+  const itaCount = articles.filter(a => a.scope === "ita").length;
+  const intCount = articles.filter(a => a.scope === "int").length;
+  const allCount = articles.length;
+
+  const tabs = [
+    { id: "all", label: "Tutte le fonti", count: allCount },
+    { id: "ita", label: "🇮🇹 Italiane", count: itaCount },
+    { id: "int", label: "🌐 Internazionali", count: intCount },
+  ];
+
+  el.innerHTML = tabs.map(t =>
+    `<button class="scope-tab ${activeScope === t.id ? 'active' : ''}" data-scope="${t.id}" onclick="setScope('${t.id}')">${t.label} <span class="scope-count">${t.count}</span></button>`
+  ).join("");
+}
+
+function renderSources() {
+  const el = document.getElementById("sourceTags");
+  const visibleFeeds = activeScope === "all" ? FEEDS : FEEDS.filter(f => f.scope === activeScope);
+  el.innerHTML = visibleFeeds.map(f => {
+    const err = feedErrors.includes(f.name);
+    const count = feedCounts[f.name] || 0;
+    const countStr = count > 0 ? ` <span class="source-count">${count}</span>` : "";
+    return `<span class="source-tag mono ${err ? 'error' : ''}" style="color:${err ? '' : f.color}">${f.name}${countStr}</span>`;
+  }).join("");
+}
+
+function renderFilters() {
+  const bar = document.getElementById("filterBar");
+  const filtered = articles.filter(a => matchScope(a));
+  bar.innerHTML = FILTERS.map(f => {
+    const count = f.id === "all" ? filtered.length : filtered.filter(a => matchFilter(a, f.id)).length;
+    if (count === 0 && f.id !== "all") return "";
+    return `<button class="filter-btn ${activeFilter === f.id ? 'active' : ''}" onclick="setFilter('${f.id}')">${f.label} <span class="filter-count">${count}</span></button>`;
+  }).join("");
+}
+
+function setScope(id) {
+  activeScope = id;
+  openArticle = null;
+  renderScopeTabs();
+  renderSources();
+  renderFilters();
+  renderArticles();
+}
+
+function setFilter(id) {
+  activeFilter = id;
+  openArticle = null;
+  renderFilters();
+  renderArticles();
+}
+
+function toggleArticle(id) {
+  openArticle = openArticle === id ? null : id;
+  renderArticles();
+}
+
+function renderArticles() {
+  const q = document.getElementById("searchBox").value;
+  const list = articles.filter(a => matchScope(a) && matchFilter(a, activeFilter) && matchSearch(a, q));
+
+  const counterEl = document.getElementById("counter");
+  const scopeLabel = activeScope !== "all" ? (activeScope === "ita" ? " · 🇮🇹 ITA" : " · 🌐 INT") : "";
+  const filterLabel = activeFilter !== "all" ? " · " + FILTERS.find(f => f.id === activeFilter).label.toUpperCase() : "";
+  counterEl.textContent = list.length + " ARTICOLI" + scopeLabel + filterLabel + (q ? ` · "${q}"` : "");
+
+  const container = document.getElementById("articleList");
+  if (list.length === 0) {
+    container.innerHTML = '<p class="empty">Nessun articolo trovato.</p>';
+    return;
+  }
+
+  container.innerHTML = list.slice(0, 100).map((a, i) => {
+    const open = openArticle === a.id;
+    const langBadge = a.scope === "ita"
+      ? '<span class="article-lang ita mono">ITA</span>'
+      : (a.translated && a.titleOriginal
+        ? '<span class="article-lang translated mono">TRAD</span>'
+        : '<span class="article-lang int mono">EN</span>');
+    const originalLine = (a.titleOriginal && open)
+      ? `<div class="article-title-original">${a.titleOriginal}</div>`
+      : "";
+
+    return `
+      <div class="article ${open ? 'open' : ''}" style="border-left-color:${a.color}">
+        <div class="article-header" onclick="toggleArticle('${a.id}')">
+          <div class="article-meta">
+            <span class="article-source mono" style="color:${a.color}">${a.source}</span>
+            ${langBadge}
+            <span class="article-time mono">${timeAgo(a.date)}</span>
+          </div>
+          <h3 class="article-title">${a.title}</h3>
+          ${originalLine}
+        </div>
+        <div class="article-body">
+          <p class="article-desc">${a.desc || "Anteprima non disponibile."}</p>
+          <a class="article-link mono" href="${a.link}" target="_blank" rel="noopener">Leggi originale ↗</a>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+// ── CARICAMENTO FEED ──
+
+async function loadAllFeeds() {
+  const btn = document.getElementById("refreshBtn");
+  const dot = document.getElementById("statusDot");
+  const loadingEl = document.getElementById("loading");
+  const contentEl = document.getElementById("content");
+  const loadingText = document.getElementById("loadingText");
+  const errorBanner = document.getElementById("errorBanner");
+
+  btn.disabled = true;
+  dot.className = "status-dot loading";
+  loadingEl.style.display = "block";
+  contentEl.style.display = "none";
+  errorBanner.style.display = "none";
+  document.getElementById("translationBar").style.display = "none";
+  articles = [];
+  feedErrors = [];
+  feedCounts = {};
+  openArticle = null;
+
+  for (let i = 0; i < FEEDS.length; i++) {
+    const feed = FEEDS[i];
+    loadingText.textContent = `Caricamento ${feed.name}... (${i + 1}/${FEEDS.length})`;
+    try {
+      const r = await fetch(RSS2JSON + encodeURIComponent(feed.url));
+      const d = await r.json();
+      if (d.status === "ok" && d.items) {
+        let count = 0;
+        d.items.forEach((item, j) => {
+          articles.push({
+            id: feed.name.replace(/\s/g, "") + "-" + j,
+            title: item.title || "Senza titolo",
+            titleOriginal: null,
+            desc: stripHtml(item.description).slice(0, 500),
+            link: item.link || "#",
+            date: item.pubDate || "",
+            source: feed.name,
+            color: feed.color,
+            lang: feed.lang,
+            scope: feed.scope,
+            cats: (item.categories || []).join(" ").toLowerCase(),
+            translated: feed.lang === "it",
+          });
+          count++;
+        });
+        feedCounts[feed.name] = count;
+      } else {
+        feedErrors.push(feed.name);
+      }
+    } catch {
+      feedErrors.push(feed.name);
+    }
+    renderSources();
+  }
+
+  articles.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  document.getElementById("lastUpdate").textContent =
+    new Date().toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  if (feedErrors.length > 0) {
+    errorBanner.textContent = `⚠ Feed non raggiungibili: ${feedErrors.join(", ")}`;
+    errorBanner.style.display = "block";
+  }
+
+  loadingEl.style.display = "none";
+  contentEl.style.display = "block";
+  dot.className = feedErrors.length === FEEDS.length ? "status-dot error" : "status-dot";
+  btn.disabled = false;
+
+  renderScopeTabs();
+  renderSources();
+  renderFilters();
+  renderArticles();
+
+  // Avvia traduzione in background
+  translateArticles();
+}
+
+// ── AVVIO ──
+renderSources();
+loadAllFeeds();
+</script>
+</body>
+</html>
